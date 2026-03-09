@@ -24,30 +24,37 @@ function curve = makeDepoCurve (ts , dfs)
     end
 
     % Include t0 = 0 with df0 = 1 for bootstrapping
-    t  = [0; ts]; % size N + 1
-    df = [1; dfs]; % size N + 1
+    ts  = [0; ts]; % size N + 1
+    dfs = [1; dfs]; % size N + 1
+    
+    % Ensure ts is sorted in ascending order, with corresponding dfs rearranged accordingly
+    [ts, idx] = sort(ts);
+    dfs = dfs(idx);
+    curve.ts = ts;
+    curve.dfs = dfs;
 
-    dt = diff(t); % size N
+    % Calculate period (T_n - T_{n-1}) discount factors and period lengths
+    curve.period_dfs = [dfs(1); [dfs(2:end)]./dfs(1:end-1)];
+    curve.period_lens = [ts(1); diff(ts)];
 
     % Bootstrap local rates
     % r_i = - (ln P(0,t_{i+1}) - ln P(0,t_i)) / (t_{i+1}-t_i)
-    r = -(log(df(2:end)) - log(df(1:end-1))) ./ dt; % size N
+    curve.r = -(log(curve.period_dfs)) ./ period.lens; % size N
 
     % Precompute cumulative integrals
     % I(1)=0, I(i+1)=I(i)+r(i)*dt(i)
     I = zeros(size(t)); % size N + 1
     I(2:end) = cumsum(r .* dt);
+    curve.I = I;
 
     % Precompute a_i
     % For t in [t_i, t_{i+1}):  ∫0^t r = I(i) + r(i)*(t - t_i)
     %                        = (I(i) - r(i)*t_i) + r(i)*t
     a = I(1:end-1) - r .* t(1:end-1); % size N
+    curve.a = a;
 
-    % Store in struct
-    curve.t     = t;
-    curve.r     = r;
-    curve.I     = I;
-    curve.a     = a;
-    curve.lastT = t(end);
-    curve.lastR = r(end);
+    % Store last T and local rate r to support extrapolation of rates beyond last T
+    curve.lastT = curve.ts(end);
+    curve.lastR = curve.r(end);
+
 end

@@ -5,37 +5,36 @@
 % Vs: vector of implied Black volatilities
 % Output :
 % u: vector of call options undiscounted prices
-function u = getBlackCall (f, T, Ks , Vs)
+function u = getBlackCall(f, T, Ks, Vs)
 
+    % Validate inputs according to required conditions
+    arguments
+        f  double {mustBePositive}
+        T  double {mustBeNonnegative}
+        Ks double {mustBeNonnegative}
+        Vs double {mustBePositive}
+    end
+    
     % Ensure Ks and Vs have same length
-
     Ks = Ks(:);
     Vs = Vs(:);
+    assert(numel(Ks) == numel(Vs), "Length of Ks must be the same as Vs");
 
-    if numel(Ks) ~= numel(Vs)
-        error("Ks and Vs must have the same length.")
-    end
-
-    % Ensure Ks and f are >= 0
+    % For all K = 0, u = f,
+    zerosIdx = (Ks == 0);
+    u = zeros(size(Ks));
+    u(zerosIdx) = f;
     
-    if any(Ks <= 0)
-        error("Strike price must be strictly positive")
-    end
-
-    if f <= 0
-        error("Forward price must be strictly positive")
-    end
-
     % If T <= 0, u = max(f-Ks, 0)
     % u = f*N(d1) - K*N(D2) for T > 0
-    
-    if T <= 0
-        u = max(f-Ks, 0);
+    posIdx = (Ks > 0);
+    if T == 0
+        u(posIdx) = max(f-Ks(posIdx), 0);
         return;
     end
 
-    d1 = (log(f ./ Ks) + (0.5 .* Vs.^2) .* T) ./ (Vs .* sqrt(T));
-    d2 = d1 - Vs .* sqrt(T);
-    u = f .* normcdf(d1) - Ks .* normcdf(d2);
-    
+    totalVol = Vs(posIdx) .* sqrt(T);
+    d1 = (log(f ./ Ks(posIdx)))/totalVol + 0.5 .* totalVol;
+    d2 = d1 - totalVol;
+    u(posIdx) = f .* normcdf(d1) - Ks(posIdx) .* normcdf(d2);
 end
